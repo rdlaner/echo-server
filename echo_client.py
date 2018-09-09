@@ -21,12 +21,12 @@ def client(msg, log_buffer=sys.stderr):
     logger = logging.getLogger(__name__)
 
     server_address = ('localhost', 10000)
-    sock = socket.socket(family=socket.AF_INET,
-                         type=socket.SOCK_STREAM,
-                         proto=socket.IPPROTO_TCP)
+    socks = [socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP),
+             socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)]
 
-    logger.info('connecting to {server_address[0]} port {server_address[1]}')
-    sock.connect(server_address)
+    logger.info(f'connecting to {server_address[0]} port {server_address[1]}')
+    for s in socks:
+        s.connect(server_address)
 
     # you can use this variable to accumulate the entire message received back
     # from the server
@@ -35,22 +35,25 @@ def client(msg, log_buffer=sys.stderr):
     # this try/finally block exists purely to allow us to close the socket
     # when we are finished with it
     try:
-        logger.info('sending "{msg}"')
-        sock.sendall(msg.encode('utf-8'))
+        for s in socks:
+            logger.info(f'sending "{msg}"')
+            s.sendall(msg.encode('utf-8'))
 
-        while True:
-            chunk = sock.recv(BUFF_SIZE)
-            if not chunk:
-                break
+        for s in socks:
+            while True:
+                chunk = s.recv(BUFF_SIZE)
+                received_message += chunk.decode('utf-8')
+                logger.info(f'received "{chunk.decode("utf-8")}"')
 
-            received_message = ''.join([received_message, chunk.decode('utf-8')])
-            logger.info(f'received "{chunk.decode("utf-8")}"')
+                if len(chunk) < BUFF_SIZE:
+                    break
     except Exception:
         traceback.print_exc()
         sys.exit(1)
     finally:
-        sock.close()
-        logger.info('closing socket')
+        for s in socks:
+            s.close()
+        logger.info(f'closing sockets')
 
     return received_message
 
